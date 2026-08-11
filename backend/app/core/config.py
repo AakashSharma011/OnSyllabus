@@ -2,11 +2,11 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    database_url: str
-    upstash_redis_url: str
-    upstash_redis_token: str
-    resend_api_key: str
-    jwt_secret: str
+    DATABASE_URL: str
+    UPSTASH_REDIS_REST_URL: str
+    UPSTASH_REDIS_REST_TOKEN: str
+    RESEND_API_KEY: str
+    JWT_SECRET: str
 
     class Config:
         env_file = ".env"

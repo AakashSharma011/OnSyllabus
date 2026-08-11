@@ -2,9 +2,9 @@ import random
 import resend
 
 from app.core.config import settings
-from app.service.cache_service import set_cache, get_cache
+from app.services.cache_service import set_cache, get_cache
 
-resend.api_key = settings.resend_api_key
+resend.api_key = settings.RESEND_API_KEY
 
 def generate_otp()->str:
     """Generates a 6-digit OTP"""
