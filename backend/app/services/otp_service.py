@@ -14,7 +14,7 @@ def send_otp(email:str)->None:
     otp=generate_otp()
     set_cache(f"otp:{email}", otp, expire_seconds=300)
     resend.Emails.send({
-        "from": "OnSyllabus <onboarding@resend.dev>",
+        "from": "OnSyllabus <noreply@onsyllabus.in>",
         "to": email,
         "subject": "Your OnSyllabus verification code",
         "html": f"<p>Your OTP is <strong>{otp}</strong>. It expires in 5 minutes.</p>",
