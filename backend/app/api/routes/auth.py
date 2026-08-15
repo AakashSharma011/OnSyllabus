@@ -13,42 +13,45 @@ router = APIRouter()
 
 @router.post("/signup")
 def signup(payload: SignupRequest, db: Session = Depends(get_db)):
-    existing = db.query(User).filter(User.email == payload.email).first()
+    email = payload.email.strip().lower()
+    existing = db.query(User).filter(User.email == email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
 
     hashed = hash_password(payload.password)
-    set_cache(f"signup_pw:{payload.email}", hashed, expire_seconds=300)
+    set_cache(f"signup_pw:{email}", hashed, expire_seconds=300)
 
-    send_otp(payload.email)
+    send_otp(email)
     return {"message": "OTP sent to email"}
 
 
 @router.post("/verify-otp", response_model=TokenResponse)
 def verify_otp_route(payload: VerifyOtpRequest, db: Session = Depends(get_db)):
-    is_valid = verify_otp(payload.email, payload.otp)
+    email = payload.email.strip().lower()
+    is_valid = verify_otp(email, payload.otp)
     if not is_valid:
         raise HTTPException(status_code=400, detail="Invalid or expired OTP")
 
-    hashed_pw = get_cache(f"signup_pw:{payload.email}")
+    hashed_pw = get_cache(f"signup_pw:{email}")
     if hashed_pw is None:
         raise HTTPException(status_code=400, detail="Signup session expired, please sign up again")
 
-    new_user = User(email=payload.email, password_hash=hashed_pw, is_verified=True)
+    new_user = User(email=email, password_hash=hashed_pw, is_verified=True)
     db.add(new_user)
     db.commit()
 
-    delete_cache(f"signup_pw:{payload.email}")
+    delete_cache(f"signup_pw:{email}")
 
-    token = create_access_token(subject=payload.email)
+    token = create_access_token(subject=email)
     return {"access_token": token, "token_type": "bearer"}
 
 
 @router.post("/login", response_model=TokenResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == payload.email).first()
+    email = payload.email.strip().lower()
+    user = db.query(User).filter(User.email == email).first()
     if not user or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    token = create_access_token(subject=payload.email)
+    token = create_access_token(subject=email)
     return {"access_token": token, "token_type": "bearer"}

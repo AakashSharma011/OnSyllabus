@@ -170,3 +170,33 @@ h1, h2, h3, .display { font-family: var(--font-display); letter-spacing: -0.02em
   margin-bottom: 20px;
 }
 .logo-chip img { height: 150px; display: block; }
+
+.navbar {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 32px;
+  background: rgba(10, 11, 20, 0.85);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+.navbar-logo img { height: 28px; display: block; }
+
+.browse-page { min-height: 100vh; background: var(--bg); }
+.browse-content { max-width: 960px; margin: 0 auto; padding: 40px 24px; }
+.browse-title { font-size: 26px; margin-bottom: 6px; }
+.browse-subtitle { color: var(--text-muted); font-size: 14px; margin-bottom: 32px; }
+
+.item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+.item-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+  text-align: left;
+}
+.item-card:hover { border-color: var(--accent-blue); transform: translateY(-2px); }
+.item-card h3 { font-size: 16px; margin: 0 0 4px; color: var(--text); }
+.item-card p { font-size: 13px; color: var(--text-muted); margin: 0; }
+.empty-state { color: var(--text-muted); font-size: 14px; padding: 40px 0; text-align: center; }

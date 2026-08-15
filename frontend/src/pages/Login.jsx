@@ -1,3 +1,4 @@
+import { useAuth } from "../hooks/useAuth.js";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import ParticleField from "../components/ParticleField.jsx";
@@ -17,6 +18,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -24,7 +26,7 @@ export default function Login() {
     setLoading(true);
     try {
       const { data } = await client.post("/auth/login", { email, password });
-      localStorage.setItem("access_token", data.access_token);
+      login(data.access_token);
       navigate("/colleges");
     } catch (err) {
       setError(err.response?.data?.detail || "Login failed. Check your details.");
@@ -35,7 +37,7 @@ export default function Login() {
 
   return (
     <div className="split">
-      <div className="split-panel split-panel--visual">
+      <div className="split-panel split-panel--visual" style={{ flexDirection: "column", justifyContent: "flex-start", alignItems: "center", paddingTop: 80 }}>
         <ParticleField />
         {CHIPS.map((chip) => (
           <div
@@ -46,11 +48,11 @@ export default function Login() {
             {chip.label}
           </div>
         ))}
-        <div style={{ position: "relative", zIndex: 2 }}>
+        <div style={{ position: "relative", zIndex: 2, textAlign: "center", maxWidth: 380 }}>
           <h2 className="display" style={{ fontSize: 32, lineHeight: 1.25, marginBottom: 12 }}>
             Stop watching<br />the wrong lecture.
           </h2>
-          <p style={{ color: "var(--text-muted)", fontSize: 14, maxWidth: 340 }}>
+          <p style={{ color: "var(--text-muted)", fontSize: 14 }}>
             Every video and note here is mapped to your exact syllabus, unit by unit.
           </p>
         </div>

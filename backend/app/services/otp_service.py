@@ -10,16 +10,19 @@ def generate_otp()->str:
     """Generates a 6-digit OTP"""
     return str(random.randint(100000, 999999))
 
-def send_otp(email:str)->None:
-    otp=generate_otp()
+def send_otp(email: str) -> None:
+    email = email.strip().lower()
+    otp = generate_otp()
     set_cache(f"otp:{email}", otp, expire_seconds=300)
     resend.Emails.send({
-        "from": "OnSyllabus <noreply@onsyllabus.in>",
+        "from": "OnSyllabus <otp@onsyllabus.in>",
         "to": email,
         "subject": "Your OnSyllabus verification code",
         "html": f"<p>Your OTP is <strong>{otp}</strong>. It expires in 5 minutes.</p>",
     })
 
+
 def verify_otp(email: str, otp: str) -> bool:
+    email = email.strip().lower()
     cached = get_cache(f"otp:{email}")
     return cached is not None and cached == otp
