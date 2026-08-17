@@ -1,7 +1,8 @@
-import Footer from "../components/Footer.jsx";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "../components/Navbar.jsx";
+import Footer from "../components/Footer.jsx";
+import EntityCard from "../components/EntityCard.jsx";
 import client from "../api/client.js";
 
 export default function UnitList() {
@@ -20,15 +21,14 @@ export default function UnitList() {
     <div className="browse-page">
       <Navbar />
       <div className="browse-content">
+        <span className="eyebrow">Units</span>
         <h1 className="display browse-title">Units</h1>
         <p className="browse-subtitle">Pick a unit to see curated videos and notes.</p>
         {loading && <p className="empty-state">Loading units...</p>}
         {!loading && units.length === 0 && <p className="empty-state">No units added for this subject yet.</p>}
         <div className="item-grid">
-          {units.map((unit) => (
-            <button key={unit.id} className="item-card" onClick={() => navigate(`/unit/${unit.id}`)}>
-              <h3>{unit.name}</h3>
-            </button>
+          {units.map((unit, i) => (
+            <EntityCard key={unit.id} index={i} title={unit.name} onClick={() => navigate(`/unit/${unit.id}`)} />
           ))}
         </div>
       </div>

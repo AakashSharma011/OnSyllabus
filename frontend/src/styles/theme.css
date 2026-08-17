@@ -230,3 +230,64 @@ h1, h2, h3, .display { font-family: var(--font-display); letter-spacing: -0.02em
 .footer-name { font-size: 13px; color: var(--text-muted); margin: 0; }
 .footer-links { display: flex; gap: 10px; align-items: center; font-size: 13px; }
 .footer-sep { color: var(--border); }
+
+.eyebrow {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-blue);
+  background: rgba(79, 142, 255, 0.1);
+  border: 1px solid rgba(79, 142, 255, 0.25);
+  padding: 4px 12px;
+  border-radius: 999px;
+  margin-bottom: 14px;
+}
+
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.entity-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: linear-gradient(160deg, var(--surface), rgba(17, 19, 31, 0.6));
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  animation: card-in 0.4s ease backwards;
+}
+.entity-card:hover { transform: translateY(-3px); box-shadow: 0 14px 34px -14px rgba(79, 142, 255, 0.45); }
+.entity-avatar {
+  flex-shrink: 0;
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  border: 1px solid;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 17px;
+}
+.entity-card h3 { font-size: 15px; margin: 0 0 2px; color: var(--text); }
+.entity-card p { font-size: 12.5px; color: var(--text-muted); margin: 0; }
+
+.semester-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  background: linear-gradient(160deg, var(--surface), rgba(17, 19, 31, 0.6));
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  animation: card-in 0.4s ease backwards;
+}
+.semester-card:hover { transform: translateY(-3px); border-color: var(--accent-violet); box-shadow: 0 14px 34px -14px rgba(167, 139, 250, 0.45); }
+.semester-number { font-family: var(--font-display); font-size: 30px; font-weight: 700; color: var(--text); }
+.semester-label { font-size: 12.5px; color: var(--text-muted); }
