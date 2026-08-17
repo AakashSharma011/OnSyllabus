@@ -11,3 +11,9 @@ class ResourceOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+class ResourceCreate(BaseModel):
+    unit_id: uuid.UUID
+    type: str
+    title: str
+    url: str

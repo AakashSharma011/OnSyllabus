@@ -9,6 +9,7 @@ import SubjectList from "./pages/SubjectList.jsx";
 import UnitList from "./pages/UnitList.jsx";
 import UnitDetail from "./pages/UnitDetail.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
+import Admin from "./pages/Admin.jsx";
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
       <Route path="/subjects" element={<ProtectedRoute><SubjectList /></ProtectedRoute>} />
       <Route path="/units" element={<ProtectedRoute><UnitList /></ProtectedRoute>} />
       <Route path="/unit/:unitId" element={<ProtectedRoute><UnitDetail /></ProtectedRoute>} />
+      <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
     </Routes>
   );
 }

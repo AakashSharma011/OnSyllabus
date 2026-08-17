@@ -1,3 +1,4 @@
+import Footer from "../components/Footer.jsx";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "../components/Navbar.jsx";
@@ -31,6 +32,7 @@ export default function UnitList() {
           ))}
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Column, String, DateTime, func
+from sqlalchemy import Column, String, DateTime, func,Boolean
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.core.database import Base
@@ -16,3 +16,4 @@ class User(Base):
     branch_id = Column(UUID(as_uuid=True), nullable=True)
     is_verified = Column(String, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    is_admin = Column(Boolean, default=False)

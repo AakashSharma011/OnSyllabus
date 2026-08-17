@@ -8,3 +8,7 @@ class BranchOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+class BranchCreate(BaseModel):
+    name: str
+    college_id: uuid.UUID

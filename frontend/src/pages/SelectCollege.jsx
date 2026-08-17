@@ -1,3 +1,4 @@
+import Footer from "../components/Footer.jsx";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar.jsx";
@@ -29,6 +30,7 @@ export default function SelectCollege() {
           ))}
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

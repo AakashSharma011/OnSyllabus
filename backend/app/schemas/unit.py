@@ -9,3 +9,10 @@ class UnitOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+
+class UnitCreate(BaseModel):
+    name: str
+    order_index: int
+    subject_id: uuid.UUID

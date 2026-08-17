@@ -9,3 +9,7 @@ class CollegeOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+class CollegeCreate(BaseModel):
+    name: str
+    university: str

@@ -1,3 +1,4 @@
+import Footer from "../components/Footer.jsx";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import Navbar from "../components/Navbar.jsx";
@@ -38,6 +39,7 @@ export default function UnitDetail() {
         )}
         {!loading && resources.length === 0 && <p className="empty-state">No resources added for this unit yet.</p>}
       </div>
+      <Footer />
     </div>
   );
 }
