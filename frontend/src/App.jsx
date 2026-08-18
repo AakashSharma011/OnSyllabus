@@ -12,6 +12,7 @@ import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import Admin from "./pages/Admin.jsx";
 import SelectSemester from "./pages/SelectSemester.jsx";
 
+
 export default function App() {
   return (
     <Routes>

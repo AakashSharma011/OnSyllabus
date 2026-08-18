@@ -1,5 +1,5 @@
 import json
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -25,9 +25,22 @@ def list_units(subject_id: str, db: Session = Depends(get_db)):
     return result
 
 
+@router.get("/{unit_id}", response_model=UnitOut)
+def get_unit(unit_id: str, db: Session = Depends(get_db)):
+    unit = db.query(Unit).filter(Unit.id == unit_id).first()
+    if unit is None:
+        raise HTTPException(status_code=404, detail="Unit not found")
+    return unit
+
+
 @router.post("/", response_model=UnitOut)
 def create_unit(payload: UnitCreate, db: Session = Depends(get_db), current_user: User = Depends(get_admin_user)):
-    unit = Unit(name=payload.name, order_index=payload.order_index, subject_id=payload.subject_id)
+    unit = Unit(
+        name=payload.name,
+        order_index=payload.order_index,
+        subject_id=payload.subject_id,
+        description=payload.description,
+    )
     db.add(unit)
     db.commit()
     db.refresh(unit)
