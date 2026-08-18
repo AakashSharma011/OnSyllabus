@@ -10,7 +10,13 @@ export default function Navbar() {
         <img src="/logo.png" alt="OnSyllabus" />
       </Link>
 
-      <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: 20,
+          alignItems: "center",
+        }}
+      >
         {isAdmin && (
           <Link to="/admin" className="link-muted">
             Add content

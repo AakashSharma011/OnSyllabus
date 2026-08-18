@@ -3,5 +3,5 @@ import LogoIntro from "../components/LogoIntro.jsx";
 
 export default function Landing() {
   const navigate = useNavigate();
-  return <LogoIntro onComplete={() => navigate("/login")} />;
+  return <LogoIntro onComplete={() => navigate("/home")} />;
 }

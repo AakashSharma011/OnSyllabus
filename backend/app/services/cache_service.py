@@ -22,3 +22,9 @@ def get_cache(key: str) -> str | None:
 
 def delete_cache(key: str) -> None:
     _command("DEL", key)
+
+def clear_prefix(prefix: str) -> int:
+    keys = _command("KEYS", f"{prefix}*") or []
+    for k in keys:
+        _command("DEL", k)
+    return len(keys)

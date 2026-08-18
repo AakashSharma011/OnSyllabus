@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.api.routes import admin_tools
 
 from app.api.routes import (
     auth,
@@ -33,6 +34,7 @@ app.include_router(subjects.router, prefix="/subjects", tags=["subjects"])
 app.include_router(units.router, prefix="/units", tags=["units"])
 app.include_router(resources.router, prefix="/resources", tags=["resources"])
 app.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
+app.include_router(admin_tools.router, prefix="/admin", tags=["admin"])
 
 @app.get("/health")
 def health_check():

@@ -7,6 +7,7 @@ from app.services.cache_service import set_cache, get_cache, delete_cache
 from app.core.database import get_db
 from app.core.security import hash_password, verify_password, create_access_token
 from app.models.user import User
+from app.schemas.auth import ForgotPasswordRequest, ResetPasswordRequest
 
 router = APIRouter()
 
@@ -61,3 +62,25 @@ from app.api.deps import get_current_user
 @router.get("/me")
 def get_me(current_user: User = Depends(get_current_user)):
     return {"email": current_user.email, "is_admin": current_user.is_admin}
+
+@router.post("/forgot-password")
+def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    email = payload.email.strip().lower()
+    user = db.query(User).filter(User.email == email).first()
+    if user:
+        send_otp(email)
+    return {"message": "If that email is registered, a reset code has been sent."}
+
+
+@router.post("/reset-password")
+def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    email = payload.email.strip().lower()
+    if not verify_otp(email, payload.otp):
+        raise HTTPException(status_code=400, detail="Invalid or expired code")
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="No account found")
+    user.password_hash = hash_password(payload.new_password)
+    db.commit()
+    delete_cache(f"otp:{email}")
+    return {"message": "Password updated. You can log in now."}

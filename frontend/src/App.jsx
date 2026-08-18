@@ -11,6 +11,8 @@ import UnitDetail from "./pages/UnitDetail.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import Admin from "./pages/Admin.jsx";
 import SelectSemester from "./pages/SelectSemester.jsx";
+import ForgotPassword from "./pages/ForgotPassword.jsx";
+import Home from "./pages/Home.jsx";
 
 
 export default function App() {
@@ -28,6 +30,8 @@ export default function App() {
       <Route path="/unit/:unitId" element={<ProtectedRoute><UnitDetail /></ProtectedRoute>} />
       <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
       <Route path="/semesters" element={<ProtectedRoute><SelectSemester /></ProtectedRoute>} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/home" element={<Home />} />
     </Routes>
   );
 }
