@@ -221,8 +221,8 @@ export default function Login() {
           <p
             style={{
               textAlign: "right",
-              marginBottom: 4,
-              marginTop: -8,
+              marginBottom: 16,
+              marginTop: 4,
             }}
           >
             <Link
