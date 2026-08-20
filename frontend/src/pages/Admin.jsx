@@ -106,99 +106,47 @@ function StructurePanel() {
   }, [selectedColleges]);
 
   useEffect(() => {
-    if (selectedBranches.length === 0 || selectedSemesters.length === 0) {
-      setSubjects([]);
-      setSelectedSubjects([]);
-      return;
-    }
-
+    if (selectedBranches.length === 0 || selectedSemesters.length === 0) { setSubjects([]); setSelectedSubjects([]); return; }
     Promise.all(
       selectedBranches.flatMap((branchId) =>
-        selectedSemesters.map((sem) =>
-          client.get(`/subjects/?branch_id=${branchId}&semester=${sem}`)
-        )
+        selectedSemesters.map((sem) => client.get(`/subjects/?branch_id=${branchId}&semester=${sem}`))
       )
     ).then((res) => {
       const merged = res.flatMap((r) => r.data);
-
-      // A subject can exist in multiple selected semesters. Select it by
-      // name so the backend applies it to every selected branch × semester.
-      const uniqueByName = Array.from(
-        new Map(
-          merged.map((s) => [
-            String(s.name || "").trim().toLowerCase(),
-            s,
-          ])
-        ).values()
-      ).filter((s) => s.name?.trim());
-
-      setSubjects(uniqueByName);
-      setSelectedSubjects((current) =>
-        current.filter((id) => uniqueByName.some((s) => s.id === id))
-      );
-    }).catch(() => {
-      setSubjects([]);
-      setSelectedSubjects([]);
+      setSubjects(Array.from(new Map(merged.map((s) => [s.id, s])).values()));
     });
   }, [selectedBranches, selectedSemesters]);
 
-  const getSelectedSubjectNames = () => {
-    const selectedIds = new Set(selectedSubjects);
-
-    return Array.from(
-      new Set(
-        subjects
-          .filter((subject) => selectedIds.has(subject.id))
-          .map((subject) => subject.name.trim())
-          .filter(Boolean)
-      )
-    );
-  };
-
   const buildPayload = (dryRun) => ({
     college_ids: selectedColleges,
-    new_college: newCollegeName.trim()
-      ? {
-          name: newCollegeName.trim(),
-          university: newCollegeUniversity.trim(),
-        }
-      : null,
+    new_college: newCollegeName.trim() ? { name: newCollegeName.trim(), university: newCollegeUniversity.trim() } : null,
     branch_ids: selectedBranches,
-    new_branch_names: newBranchNames
-      .split(",")
-      .map((n) => n.trim())
-      .filter(Boolean),
-    semesters: selectedSemesters.map(Number),
-
-    // Existing subjects are sent by name, not by one particular ID.
+    new_branch_names: newBranchNames.split(",").map((n) => n.trim()).filter(Boolean),
+    semesters: selectedSemesters,
     subject_ids: [],
-    existing_subject_names: getSelectedSubjectNames(),
-
-    new_subject_names: newSubjectNames
-      .split(",")
-      .map((n) => n.trim())
-      .filter(Boolean),
-
-    unit_names: unitNames
-      .split("\n")
-      .map((n) => n.trim())
-      .filter(Boolean),
-
+    existing_subject_names: Array.from(
+      new Set(
+        selectedSubjects
+          .map((id) => subjects.find((s) => s.id === id)?.name?.trim())
+          .filter(Boolean)
+      )
+    ),
+    new_subject_names: newSubjectNames.split(",").map((n) => n.trim()).filter(Boolean),
+    unit_names: unitNames.split("\n").map((n) => n.trim()).filter(Boolean),
     dry_run: dryRun,
   });
 
   const hasAnything = () => {
     const p = buildPayload(true);
-
-    return Boolean(
-      p.college_ids.length ||
-      p.new_college ||
-      p.branch_ids.length ||
-      p.new_branch_names.length ||
-      p.semesters.length ||
-      p.existing_subject_names.length ||
-      p.new_subject_names.length ||
-      p.unit_names.length
+    return (
+      p.college_ids.length > 0 ||
+      !!p.new_college ||
+      p.branch_ids.length > 0 ||
+      p.new_branch_names.length > 0 ||
+      p.semesters.length > 0 ||
+      p.existing_subject_names.length > 0 ||
+      p.new_subject_names.length > 0 ||
+      p.unit_names.length > 0
     );
   };
 
@@ -215,56 +163,20 @@ function StructurePanel() {
 
   const confirmCreate = async () => {
     setBusy(true);
-
     try {
-      const { data } = await client.post(
-        "/admin/bulk-structure",
-        buildPayload(false)
-      );
-
+      const { data } = await client.post("/admin/bulk-structure", buildPayload(false));
       setResult(
         `Colleges: +${data.colleges.created} new / ${data.colleges.reused} reused\n` +
         `Branches: +${data.branches.created} new / ${data.branches.reused} reused\n` +
-        `Semesters selected: ${data.semesters.selected}\n` +
         `Subjects: +${data.subjects.created} new / ${data.subjects.reused} reused\n` +
         `Units: +${data.units.created} new / ${data.units.reused} reused`
       );
-
       setPreview(null);
-      setNewCollegeName("");
-      setNewCollegeUniversity("");
-      setNewBranchNames("");
-      setNewSubjectNames("");
-      setUnitNames("");
-
-      await loadColleges();
-
-      if (selectedBranches.length && selectedSemesters.length) {
-        const res = await Promise.all(
-          selectedBranches.flatMap((branchId) =>
-            selectedSemesters.map((sem) =>
-              client.get(`/subjects/?branch_id=${branchId}&semester=${sem}`)
-            )
-          )
-        );
-
-        const merged = res.flatMap((r) => r.data);
-        const uniqueByName = Array.from(
-          new Map(
-            merged.map((s) => [
-              String(s.name || "").trim().toLowerCase(),
-              s,
-            ])
-          ).values()
-        ).filter((s) => s.name?.trim());
-
-        setSubjects(uniqueByName);
-      }
+      setNewCollegeName(""); setNewCollegeUniversity(""); setNewBranchNames(""); setNewSubjectNames(""); setUnitNames("");
+      loadColleges();
     } catch (err) {
       setResult(err.response?.data?.detail || "Something went wrong.");
-    } finally {
-      setBusy(false);
-    }
+    } finally { setBusy(false); }
   };
 
   const buttonLabel = () => {
@@ -322,7 +234,6 @@ function StructurePanel() {
           <p style={{ fontWeight: 600, marginBottom: 8 }}>This will create/reuse:</p>
           <p>Colleges: {preview.colleges.created} new, {preview.colleges.reused} existing</p>
           <p>Branches: {preview.branches.created} new, {preview.branches.reused} existing</p>
-          <p>Semesters selected: {preview.semesters.selected}</p>
           <p>Subjects: {preview.subjects.created} new, {preview.subjects.reused} existing</p>
           <p>Units: {preview.units.created} new, {preview.units.reused} existing</p>
           <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
@@ -371,12 +282,10 @@ function ResourcePanel() {
 
   const buildPayload = (dryRun) => ({
     branch_ids: selectedBranches,
-    semesters: semester ? [Number(semester)] : [],
+    semester: Number(semester),
     subject_name: subjectName.trim(),
     unit_name: unitName.trim(),
-    type,
-    title: title.trim(),
-    url: url.trim(),
+    type, title, url,
     dry_run: dryRun,
   });
 
