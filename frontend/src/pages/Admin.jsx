@@ -152,6 +152,7 @@ function StructurePanel() {
       setResult(
         `Colleges: +${data.colleges.created} new / ${data.colleges.reused} reused\n` +
         `Branches: +${data.branches.created} new / ${data.branches.reused} reused\n` +
+        `Semesters: +${data.semesters.created} new / ${data.semesters.reused} reused\n` +
         `Subjects: +${data.subjects.created} new / ${data.subjects.reused} reused\n` +
         `Units: +${data.units.created} new / ${data.units.reused} reused`
       );
@@ -217,6 +218,7 @@ function StructurePanel() {
         <div className="preview-box">
           <p style={{ fontWeight: 600, marginBottom: 8 }}>This will create/reuse:</p>
           <p>Colleges: {preview.colleges.created} new, {preview.colleges.reused} existing</p>
+          <p>Semesters: {preview.semesters.created} new, {preview.semesters.reused} existing</p>
           <p>Branches: {preview.branches.created} new, {preview.branches.reused} existing</p>
           <p>Subjects: {preview.subjects.created} new, {preview.subjects.reused} existing</p>
           <p>Units: {preview.units.created} new, {preview.units.reused} existing</p>

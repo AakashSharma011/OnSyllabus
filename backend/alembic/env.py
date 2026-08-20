@@ -5,7 +5,7 @@ from alembic import context
 
 from app.core.config import settings
 from app.core.database import Base
-from app.models import user, college, branch, subject, unit, resource
+from app.models import user, college, branch, subject, unit, resource, semester
 
 # Alembic Config object
 config = context.config
