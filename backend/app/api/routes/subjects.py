@@ -17,7 +17,8 @@ router = APIRouter()
 
 @router.get("/semesters")
 def list_semesters(branch_id: str, db: Session = Depends(get_db)):
-    rows = db.query(distinct(Subject.semester)).filter(Subject.branch_id == branch_id).order_by(Subject.semester).all()
+    from app.models.semester import Semester
+    rows = db.query(Semester.number).filter(Semester.branch_id == branch_id).order_by(Semester.number).all()
     return [r[0] for r in rows]
 
 
