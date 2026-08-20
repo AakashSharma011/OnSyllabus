@@ -17,3 +17,7 @@ class UnitCreate(BaseModel):
     order_index: int
     subject_id: uuid.UUID
     description: str | None = None
+
+
+class UnitUpdate(BaseModel):
+    description: str | None = None

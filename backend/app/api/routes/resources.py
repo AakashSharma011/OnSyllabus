@@ -18,7 +18,7 @@ def list_resources(unit_id: str, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=ResourceOut)
 def create_resource(payload: ResourceCreate, db: Session = Depends(get_db), current_user: User = Depends(get_admin_user)):
-    video_id = extract_video_id(payload.url) if payload.type == "video" else None
+    video_id = extract_video_id(payload.url) if payload.type == "playlist" else None
     resource = Resource(
         unit_id=payload.unit_id,
         type=payload.type,
@@ -30,6 +30,17 @@ def create_resource(payload: ResourceCreate, db: Session = Depends(get_db), curr
     db.commit()
     db.refresh(resource)
     return resource
+
+
+@router.delete("/{resource_id}")
+def delete_resource(resource_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_admin_user)):
+    resource = db.query(Resource).filter(Resource.id == resource_id).first()
+    if resource is None:
+        raise HTTPException(status_code=404, detail="Resource not found")
+    db.query(ClickEvent).filter(ClickEvent.resource_id == resource_id).delete(synchronize_session=False)
+    db.delete(resource)
+    db.commit()
+    return {"message": "Resource deleted"}
 
 
 @router.post("/{resource_id}/click")

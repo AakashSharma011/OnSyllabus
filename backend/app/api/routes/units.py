@@ -5,8 +5,9 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.api.deps import get_admin_user
 from app.models.unit import Unit
+from app.models.resource import Resource, ClickEvent
 from app.models.user import User
-from app.schemas.unit import UnitOut, UnitCreate
+from app.schemas.unit import UnitOut, UnitCreate, UnitUpdate
 from app.services.cache_service import get_cache, set_cache, delete_cache
 
 router = APIRouter()
@@ -46,3 +47,33 @@ def create_unit(payload: UnitCreate, db: Session = Depends(get_db), current_user
     db.refresh(unit)
     delete_cache(f"units:{payload.subject_id}")
     return unit
+
+
+@router.patch("/{unit_id}", response_model=UnitOut)
+def update_unit(unit_id: str, payload: UnitUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_admin_user)):
+    unit = db.query(Unit).filter(Unit.id == unit_id).first()
+    if unit is None:
+        raise HTTPException(status_code=404, detail="Unit not found")
+    if payload.description is not None:
+        unit.description = payload.description
+    db.commit()
+    db.refresh(unit)
+    return unit
+
+
+@router.delete("/{unit_id}")
+def delete_unit(unit_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_admin_user)):
+    unit = db.query(Unit).filter(Unit.id == unit_id).first()
+    if unit is None:
+        raise HTTPException(status_code=404, detail="Unit not found")
+
+    resource_ids = [r.id for r in db.query(Resource).filter(Resource.unit_id == unit_id).all()]
+    if resource_ids:
+        db.query(ClickEvent).filter(ClickEvent.resource_id.in_(resource_ids)).delete(synchronize_session=False)
+        db.query(Resource).filter(Resource.id.in_(resource_ids)).delete(synchronize_session=False)
+
+    subject_id = unit.subject_id
+    db.delete(unit)
+    db.commit()
+    delete_cache(f"units:{subject_id}")
+    return {"message": "Unit and its resources deleted"}

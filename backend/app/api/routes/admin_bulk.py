@@ -485,7 +485,7 @@ def bulk_resource(
 
     video_id = (
         extract_video_id(payload.url)
-        if payload.type == "video"
+        if payload.type == "playlist"
         else None
     )
 
