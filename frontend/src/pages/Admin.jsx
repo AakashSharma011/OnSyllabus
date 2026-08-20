@@ -123,14 +123,7 @@ function StructurePanel() {
     branch_ids: selectedBranches,
     new_branch_names: newBranchNames.split(",").map((n) => n.trim()).filter(Boolean),
     semesters: selectedSemesters,
-    subject_ids: [],
-    existing_subject_names: Array.from(
-      new Set(
-        selectedSubjects
-          .map((id) => subjects.find((s) => s.id === id)?.name?.trim())
-          .filter(Boolean)
-      )
-    ),
+    subject_ids: selectedSubjects,
     new_subject_names: newSubjectNames.split(",").map((n) => n.trim()).filter(Boolean),
     unit_names: unitNames.split("\n").map((n) => n.trim()).filter(Boolean),
     dry_run: dryRun,
@@ -138,16 +131,7 @@ function StructurePanel() {
 
   const hasAnything = () => {
     const p = buildPayload(true);
-    return (
-      p.college_ids.length > 0 ||
-      !!p.new_college ||
-      p.branch_ids.length > 0 ||
-      p.new_branch_names.length > 0 ||
-      p.semesters.length > 0 ||
-      p.existing_subject_names.length > 0 ||
-      p.new_subject_names.length > 0 ||
-      p.unit_names.length > 0
-    );
+    return p.college_ids.length || p.new_college || p.branch_ids.length || p.new_branch_names.length || p.unit_names.length;
   };
 
   const runPreview = async () => {
