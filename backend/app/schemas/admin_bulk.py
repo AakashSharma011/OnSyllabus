@@ -43,7 +43,7 @@ class BulkResourceRequest(BaseModel):
     branch_ids: list[uuid.UUID]
 
     # Changed from one semester to multiple semesters.
-    semesters: list[int]
+    semester: int
 
     subject_name: str
 

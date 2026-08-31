@@ -7,6 +7,8 @@ from app.models.resource import Resource, ClickEvent
 from app.models.user import User
 from app.schemas.resource import ResourceOut, ResourceCreate
 from app.utils.youtube import extract_video_id
+from fastapi import UploadFile, File, Form
+from app.services.storage_service import upload_file
 
 router = APIRouter()
 
@@ -53,3 +55,18 @@ def log_click(resource_id: str, db: Session = Depends(get_db), current_user: Use
     db.add(event)
     db.commit()
     return {"message": "logged"}
+
+@router.post("/upload-file")
+async def upload_resource_file(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_admin_user),
+):
+    if file.content_type != "application/pdf":
+        raise HTTPException(status_code=400, detail="Only PDF files are supported")
+
+    contents = await file.read()
+    if len(contents) > 20 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large (max 20MB)")
+
+    url = upload_file(contents, file.filename, file.content_type)
+    return {"url": url}

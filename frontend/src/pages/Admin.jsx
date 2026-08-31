@@ -16,6 +16,14 @@ function toggleIn(arr, id) {
   return arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id];
 }
 
+function extractError(err, fallback) {
+  const detail = err.response?.data?.detail;
+  if (!detail) return fallback;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) return detail.map((d) => d.msg || JSON.stringify(d)).join(", ");
+  return fallback;
+}
+
 function CheckboxGrid({ items, selected, onToggle, labelKey = "name", onSelectAll, onClearAll }) {
   return (
     <div>
@@ -141,7 +149,7 @@ function StructurePanel() {
       const { data } = await client.post("/admin/bulk-structure", buildPayload(true));
       setPreview(data);
     } catch (err) {
-      setResult(err.response?.data?.detail || "Preview failed.");
+      setResult(extractError(err, "Preview failed."));
     } finally { setBusy(false); }
   };
 
@@ -160,7 +168,7 @@ function StructurePanel() {
       setNewCollegeName(""); setNewCollegeUniversity(""); setNewBranchNames(""); setNewSubjectNames(""); setUnitNames("");
       loadColleges();
     } catch (err) {
-      setResult(err.response?.data?.detail || "Something went wrong.");
+      setResult(extractError(err, "Something went wrong."));
     } finally { setBusy(false); }
   };
 
@@ -255,6 +263,8 @@ function ResourcePanel() {
   const [type, setType] = useState("notes");
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
+  const [uploadMode, setUploadMode] = useState("url");
+  const [uploading, setUploading] = useState(false);
 
   const [preview, setPreview] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -283,7 +293,7 @@ function ResourcePanel() {
       const { data } = await client.post("/admin/bulk-resource", buildPayload(true));
       setPreview(data);
     } catch (err) {
-      setResult(err.response?.data?.detail || "Preview failed.");
+      setResult(extractError(err, "Preview failed."));
     } finally { setBusy(false); }
   };
 
@@ -295,8 +305,26 @@ function ResourcePanel() {
       setPreview(null);
       setTitle(""); setUrl("");
     } catch (err) {
-      setResult(err.response?.data?.detail || "Something went wrong.");
+      setResult(extractError(err, "Something went wrong."));
     } finally { setBusy(false); }
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const { data } = await client.post("/resources/upload-file", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setUrl(data.url);
+    } catch (err) {
+      alert(err.response?.data?.detail || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -339,7 +367,7 @@ function ResourcePanel() {
       <h3 style={{ marginBottom: 16 }}>Resource</h3>
       <div className="field">
         <label>Type</label>
-        <select style={selectStyle} value={type} onChange={(e) => setType(e.target.value)}>
+        <select style={selectStyle} value={type} onChange={(e) => { setType(e.target.value); setUrl(""); }}>
           <option value="notes">Notes</option>
           <option value="playlist">Playlist</option>
           <option value="books">Books</option>
@@ -347,7 +375,29 @@ function ResourcePanel() {
         </select>
       </div>
       <div className="field"><label>Title</label><input value={title} onChange={(e) => setTitle(e.target.value)} /></div>
-      <div className="field"><label>URL</label><input value={url} onChange={(e) => setUrl(e.target.value)} /></div>
+
+      {type === "notes" && (
+        <div className="field">
+          <label>Source</label>
+          <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+            <button type="button" className={uploadMode === "url" ? "btn-primary" : "btn-ghost"} style={{ width: "auto", padding: "8px 16px" }} onClick={() => setUploadMode("url")}>Paste link</button>
+            <button type="button" className={uploadMode === "file" ? "btn-primary" : "btn-ghost"} style={{ width: "auto", padding: "8px 16px" }} onClick={() => setUploadMode("file")}>Upload PDF</button>
+          </div>
+        </div>
+      )}
+
+      {(type !== "notes" || uploadMode === "url") && (
+        <div className="field"><label>URL</label><input value={url} onChange={(e) => setUrl(e.target.value)} /></div>
+      )}
+
+      {type === "notes" && uploadMode === "file" && (
+        <div className="field">
+          <label>PDF file (max 20MB)</label>
+          <input type="file" accept="application/pdf" onChange={handleFileUpload} />
+          {uploading && <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 6 }}>Uploading...</p>}
+          {url && !uploading && <p style={{ fontSize: 12.5, color: "var(--accent-teal)", marginTop: 6 }}>File uploaded ✓</p>}
+        </div>
+      )}
 
       {preview && (
         <div className="preview-box">

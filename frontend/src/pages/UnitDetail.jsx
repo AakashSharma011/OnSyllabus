@@ -27,19 +27,28 @@ export default function UnitDetail() {
     Promise.all([
       client.get(`/units/${unitId}`),
       client.get(`/resources/?unit_id=${unitId}`),
-    ]).then(([unitRes, resourcesRes]) => {
-      setUnit(unitRes.data);
-      setResources(resourcesRes.data);
-      const firstByType = {};
-      for (const r of resourcesRes.data) {
-        if (!firstByType[r.type]) firstByType[r.type] = r;
-      }
-      setActiveItem(firstByType);
-    }).finally(() => setLoading(false));
+    ])
+      .then(([unitRes, resourcesRes]) => {
+        setUnit(unitRes.data);
+        setResources(resourcesRes.data);
+
+        const firstPlaylist = resourcesRes.data.find(
+          (r) => r.type === "playlist"
+        );
+
+        if (firstPlaylist) {
+          setActiveItem({ playlist: firstPlaylist });
+        }
+      })
+      .finally(() => setLoading(false));
   }, [unitId]);
 
   const logClick = async (id) => {
-    try { await client.post(`/resources/${id}/click`); } catch { /* best-effort */ }
+    try {
+      await client.post(`/resources/${id}/click`);
+    } catch {
+      /* best-effort */
+    }
   };
 
   const byType = (t) => resources.filter((r) => r.type === t);
@@ -51,7 +60,9 @@ export default function UnitDetail() {
 
   const renderTabContent = () => {
     if (tab === "syllabus") {
-      return <p className="syllabus-text">{unit?.description || "No syllabus notes added for this unit yet."}</p>;
+      return (
+        unit?.description || "No syllabus notes added for this unit yet."
+      );
     }
 
     const items = byType(tab);
@@ -63,10 +74,22 @@ export default function UnitDetail() {
       ) : (
         <div className="video-layout">
           {active && <VideoPlayer resource={active} />}
+
           <div className="playlist">
             {items.map((v) => (
-              <button key={v.id} className={`playlist-item ${active?.id === v.id ? "active" : ""}`} onClick={() => selectItem(tab, v)}>
-                {v.youtube_video_id && <img src={`https://img.youtube.com/vi/${v.youtube_video_id}/mqdefault.jpg`} alt={v.title} />}
+              <button
+                key={v.id}
+                className={`playlist-item ${
+                  active?.id === v.id ? "active" : ""
+                }`}
+                onClick={() => selectItem(tab, v)}
+              >
+                {v.youtube_video_id && (
+                  <img
+                    src={`https://img.youtube.com/vi/${v.youtube_video_id}/mqdefault.jpg`}
+                    alt={v.title}
+                  />
+                )}
                 <span>{v.title}</span>
               </button>
             ))}
@@ -83,24 +106,37 @@ export default function UnitDetail() {
           onSelect={(r) => selectItem(tab, r)}
           emptyText={`No ${tab} added for this unit yet.`}
         />
-        {active && <NotesViewer resource={active} />}
+
+        {active && (
+          <NotesViewer
+            resource={active}
+            onClose={() =>
+              setActiveItem((prev) => ({ ...prev, [tab]: null }))
+            }
+          />
+        )}
       </>
     );
   };
 
   return (
-    <div className="browse-page">
+    <div>
       <Navbar />
-      <div className="browse-content">
-        <span className="eyebrow">Unit</span>
-        <h1 className="display browse-title">{loading ? "Loading..." : unit?.name}</h1>
-        <p className="browse-subtitle">Everything for this unit, organized by type.</p>
+
+      <div className="page-container">
+        <h1>Unit</h1>
+
+        <h2>{loading ? "Loading..." : unit?.name}</h2>
+
+        <p>Everything for this unit, organized by type.</p>
 
         <div className="tab-segment">
           {TABS.map((t) => (
             <button
               key={t.key}
-              className={`tab-segment-btn ${tab === t.key ? "active" : ""}`}
+              className={`tab-segment-btn ${
+                tab === t.key ? "active" : ""
+              }`}
               onClick={() => setTab(t.key)}
             >
               {t.label}
@@ -108,8 +144,13 @@ export default function UnitDetail() {
           ))}
         </div>
 
-        {loading ? <p className="empty-state">Loading...</p> : <div style={{ marginTop: 24 }}>{renderTabContent()}</div>}
+        {loading ? (
+          <p className="empty-state">Loading...</p>
+        ) : (
+          <div style={{ marginTop: 24 }}>{renderTabContent()}</div>
+        )}
       </div>
+
       <Footer />
     </div>
   );
