@@ -428,182 +428,199 @@ function ResourcePanel() {
 
 function ManagePanel() {
   const [colleges, setColleges] = useState([]);
-  const [collegeId, setCollegeId] = useState("");
+  const [selectedColleges, setSelectedColleges] = useState([]);
+
   const [branches, setBranches] = useState([]);
-  const [branchId, setBranchId] = useState("");
-  const [semester, setSemester] = useState("");
+  const [selectedBranches, setSelectedBranches] = useState([]);
+
+  const [selectedSemesters, setSelectedSemesters] = useState([]);
+
   const [subjects, setSubjects] = useState([]);
-  const [subjectId, setSubjectId] = useState("");
+  const [selectedSubjects, setSelectedSubjects] = useState([]);
+
   const [units, setUnits] = useState([]);
-  const [unitId, setUnitId] = useState("");
-  const [resources, setResources] = useState([]);
+  const [selectedUnits, setSelectedUnits] = useState([]);
+
   const [description, setDescription] = useState("");
+  const [resources, setResources] = useState([]);
+  const [selectedResources, setSelectedResources] = useState([]);
+
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
 
   const loadColleges = () => client.get("/colleges/").then(({ data }) => setColleges(data));
   useEffect(() => { loadColleges(); }, []);
 
-  const loadBranches = (cId) => client.get(`/branches/?college_id=${cId}`).then(({ data }) => setBranches(data));
   useEffect(() => {
-    if (!collegeId) { setBranches([]); setBranchId(""); return; }
-    loadBranches(collegeId);
-  }, [collegeId]);
-
-  const loadSubjects = (bId, sem) => client.get(`/subjects/?branch_id=${bId}&semester=${sem}`).then(({ data }) => setSubjects(data));
-  useEffect(() => {
-    if (!branchId || !semester) { setSubjects([]); setSubjectId(""); return; }
-    loadSubjects(branchId, semester);
-  }, [branchId, semester]);
-
-  const loadUnits = (subId) => client.get(`/units/?subject_id=${subId}`).then(({ data }) => setUnits(data));
-  useEffect(() => {
-    if (!subjectId) { setUnits([]); setUnitId(""); return; }
-    loadUnits(subjectId);
-  }, [subjectId]);
+    if (selectedColleges.length === 0) { setBranches([]); setSelectedBranches([]); return; }
+    Promise.all(selectedColleges.map((id) => client.get(`/branches/?college_id=${id}`))).then((res) => {
+      const merged = res.flatMap((r) => r.data);
+      setBranches(Array.from(new Map(merged.map((b) => [b.id, b])).values()));
+    });
+  }, [selectedColleges]);
 
   useEffect(() => {
-    if (!unitId) { setDescription(""); setResources([]); return; }
+    if (selectedBranches.length === 0 || selectedSemesters.length === 0) { setSubjects([]); setSelectedSubjects([]); return; }
+    Promise.all(
+      selectedBranches.flatMap((branchId) =>
+        selectedSemesters.map((sem) => client.get(`/subjects/?branch_id=${branchId}&semester=${sem}`))
+      )
+    ).then((res) => {
+      const merged = res.flatMap((r) => r.data);
+      setSubjects(Array.from(new Map(merged.map((s) => [s.id, s])).values()));
+    });
+  }, [selectedBranches, selectedSemesters]);
+
+  useEffect(() => {
+    if (selectedSubjects.length === 0) { setUnits([]); setSelectedUnits([]); return; }
+    Promise.all(selectedSubjects.map((id) => client.get(`/units/?subject_id=${id}`))).then((res) => {
+      const merged = res.flatMap((r) => r.data);
+      setUnits(Array.from(new Map(merged.map((u) => [u.id, u])).values()));
+    });
+  }, [selectedSubjects]);
+
+  useEffect(() => {
+    if (selectedUnits.length !== 1) { setDescription(""); setResources([]); setSelectedResources([]); return; }
+    const unitId = selectedUnits[0];
     client.get(`/units/${unitId}`).then(({ data }) => setDescription(data.description || ""));
     client.get(`/resources/?unit_id=${unitId}`).then(({ data }) => setResources(data));
-  }, [unitId]);
+  }, [selectedUnits]);
 
-  const confirmAnd = (msg, fn) => {
-    if (window.confirm(msg)) fn();
+  const notify = (msg) => setStatus(msg);
+
+  const deleteSelected = async (endpoint, ids, resetFns, label) => {
+    if (ids.length === 0) return;
+    if (!window.confirm(`Delete ${ids.length} ${label}? This removes everything nested under them.`)) return;
+    setBusy(true);
+    try {
+      for (const id of ids) {
+        await client.delete(`${endpoint}/${id}`).catch(() => {});
+      }
+      notify(`Deleted ${ids.length} ${label}.`);
+      resetFns.forEach((fn) => fn([]));
+    } catch (err) {
+      notify(extractError(err, "Delete failed."));
+    } finally {
+      setBusy(false);
+    }
   };
-
-  const deleteCollege = () => confirmAnd(
-    "Delete this college and EVERYTHING under it (branches, subjects, units, resources)? This cannot be undone.",
-    async () => {
-      setBusy(true);
-      await client.delete(`/colleges/${collegeId}`);
-      setStatus("College deleted.");
-      setCollegeId(""); setBranchId(""); setSubjectId(""); setUnitId("");
-      loadColleges();
-      setBusy(false);
-    }
-  );
-
-  const deleteBranch = () => confirmAnd(
-    "Delete this branch and everything under it (subjects, units, resources)?",
-    async () => {
-      setBusy(true);
-      await client.delete(`/branches/${branchId}`);
-      setStatus("Branch deleted.");
-      setBranchId(""); setSubjectId(""); setUnitId("");
-      loadBranches(collegeId);
-      setBusy(false);
-    }
-  );
-
-  const deleteSubject = () => confirmAnd(
-    "Delete this subject and its units/resources?",
-    async () => {
-      setBusy(true);
-      await client.delete(`/subjects/${subjectId}`);
-      setStatus("Subject deleted.");
-      setSubjectId(""); setUnitId("");
-      loadSubjects(branchId, semester);
-      setBusy(false);
-    }
-  );
-
-  const deleteUnit = () => confirmAnd(
-    "Delete this unit and all its resources?",
-    async () => {
-      setBusy(true);
-      await client.delete(`/units/${unitId}`);
-      setStatus("Unit deleted.");
-      setUnitId("");
-      loadUnits(subjectId);
-      setBusy(false);
-    }
-  );
-
-  const deleteResource = (resourceId, title) => confirmAnd(
-    `Delete resource "${title}"?`,
-    async () => {
-      setBusy(true);
-      await client.delete(`/resources/${resourceId}`);
-      setResources((prev) => prev.filter((r) => r.id !== resourceId));
-      setStatus("Resource deleted.");
-      setBusy(false);
-    }
-  );
 
   const saveSyllabus = async () => {
     setBusy(true);
     try {
-      await client.patch(`/units/${unitId}`, { description });
-      setStatus("Syllabus saved.");
+      await client.patch(`/units/${selectedUnits[0]}`, { description });
+      notify("Syllabus saved.");
     } catch (err) {
-      setStatus(err.response?.data?.detail || "Failed to save.");
+      notify(extractError(err, "Failed to save."));
     } finally { setBusy(false); }
+  };
+
+  const deleteSelectedResources = async () => {
+    if (selectedResources.length === 0) return;
+    if (!window.confirm(`Delete ${selectedResources.length} resource(s)?`)) return;
+    setBusy(true);
+    for (const id of selectedResources) {
+      await client.delete(`/resources/${id}`).catch(() => {});
+    }
+    setResources((prev) => prev.filter((r) => !selectedResources.includes(r.id)));
+    setSelectedResources([]);
+    notify("Resources deleted.");
+    setBusy(false);
   };
 
   return (
     <div className="card" style={{ maxWidth: "none" }}>
       <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginBottom: 16 }}>
-        Navigate down to whatever you want to inspect, edit or remove. Deleting a level removes everything nested under it.
+        Select one or more items at any level to delete them. Deleting a level removes everything nested under it.
       </p>
       {status && <p style={{ color: "var(--accent-teal)", fontSize: 13, marginBottom: 16 }}>{status}</p>}
 
       <div className="field">
-        <label>College</label>
-        <div style={{ display: "flex", gap: 8 }}>
-          <select style={selectStyle} value={collegeId} onChange={(e) => setCollegeId(e.target.value)}>
-            <option value="">Select college</option>
-            {colleges.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-          {collegeId && <button className="btn-ghost" onClick={deleteCollege} disabled={busy}>Delete</button>}
-        </div>
+        <label>Colleges</label>
+        <CheckboxGrid
+          items={colleges}
+          selected={selectedColleges}
+          onToggle={(id) => setSelectedColleges((p) => toggleIn(p, id))}
+          onSelectAll={() => setSelectedColleges(colleges.map((c) => c.id))}
+          onClearAll={() => setSelectedColleges([])}
+        />
+        <button className="btn-ghost" style={{ marginTop: 10 }} disabled={busy || selectedColleges.length === 0}
+          onClick={() => deleteSelected("/colleges", selectedColleges, [setSelectedColleges, setSelectedBranches, setSelectedSubjects, setSelectedUnits], "college(s)").then(loadColleges)}
+        >
+          Delete selected colleges
+        </button>
       </div>
+
+      <hr className="admin-divider" />
 
       <div className="field">
-        <label>Branch</label>
-        <div style={{ display: "flex", gap: 8 }}>
-          <select style={selectStyle} value={branchId} onChange={(e) => setBranchId(e.target.value)} disabled={!collegeId}>
-            <option value="">Select branch</option>
-            {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
-          {branchId && <button className="btn-ghost" onClick={deleteBranch} disabled={busy}>Delete</button>}
-        </div>
+        <label>Branches</label>
+        <CheckboxGrid
+          items={branches}
+          selected={selectedBranches}
+          onToggle={(id) => setSelectedBranches((p) => toggleIn(p, id))}
+          onSelectAll={() => setSelectedBranches(branches.map((b) => b.id))}
+          onClearAll={() => setSelectedBranches([])}
+        />
+        <button className="btn-ghost" style={{ marginTop: 10 }} disabled={busy || selectedBranches.length === 0}
+          onClick={() => deleteSelected("/branches", selectedBranches, [setSelectedBranches, setSelectedSubjects, setSelectedUnits], "branch(es)")}
+        >
+          Delete selected branches
+        </button>
       </div>
+
+      <hr className="admin-divider" />
 
       <div className="field">
-        <label>Semester</label>
-        <select style={selectStyle} value={semester} onChange={(e) => setSemester(e.target.value)} disabled={!branchId}>
-          <option value="">Select semester</option>
-          {SEMESTERS.map((s) => <option key={s} value={s}>Semester {s}</option>)}
-        </select>
+        <label>Semesters (scope for subjects below)</label>
+        <CheckboxGrid
+          items={SEMESTERS}
+          selected={selectedSemesters}
+          onToggle={(s) => setSelectedSemesters((p) => toggleIn(p, s))}
+          onSelectAll={() => setSelectedSemesters(SEMESTERS)}
+          onClearAll={() => setSelectedSemesters([])}
+        />
       </div>
+
+      <hr className="admin-divider" />
 
       <div className="field">
-        <label>Subject</label>
-        <div style={{ display: "flex", gap: 8 }}>
-          <select style={selectStyle} value={subjectId} onChange={(e) => setSubjectId(e.target.value)} disabled={!semester}>
-            <option value="">Select subject</option>
-            {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-          {subjectId && <button className="btn-ghost" onClick={deleteSubject} disabled={busy}>Delete</button>}
-        </div>
+        <label>Subjects</label>
+        <CheckboxGrid
+          items={subjects}
+          selected={selectedSubjects}
+          onToggle={(id) => setSelectedSubjects((p) => toggleIn(p, id))}
+          onSelectAll={() => setSelectedSubjects(subjects.map((s) => s.id))}
+          onClearAll={() => setSelectedSubjects([])}
+        />
+        <button className="btn-ghost" style={{ marginTop: 10 }} disabled={busy || selectedSubjects.length === 0}
+          onClick={() => deleteSelected("/subjects", selectedSubjects, [setSelectedSubjects, setSelectedUnits], "subject(s)")}
+        >
+          Delete selected subjects
+        </button>
       </div>
+
+      <hr className="admin-divider" />
 
       <div className="field">
-        <label>Unit</label>
-        <div style={{ display: "flex", gap: 8 }}>
-          <select style={selectStyle} value={unitId} onChange={(e) => setUnitId(e.target.value)} disabled={!subjectId}>
-            <option value="">Select unit</option>
-            {units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-          </select>
-          {unitId && <button className="btn-ghost" onClick={deleteUnit} disabled={busy}>Delete</button>}
-        </div>
+        <label>Units</label>
+        <CheckboxGrid
+          items={units}
+          selected={selectedUnits}
+          onToggle={(id) => setSelectedUnits((p) => toggleIn(p, id))}
+          onSelectAll={() => setSelectedUnits(units.map((u) => u.id))}
+          onClearAll={() => setSelectedUnits([])}
+        />
+        <button className="btn-ghost" style={{ marginTop: 10 }} disabled={busy || selectedUnits.length === 0}
+          onClick={() => deleteSelected("/units", selectedUnits, [setSelectedUnits], "unit(s)")}
+        >
+          Delete selected units
+        </button>
       </div>
 
-      {unitId && (
+      {selectedUnits.length === 1 && (
         <>
           <hr className="admin-divider" />
-
           <h3 style={{ marginBottom: 12 }}>Syllabus text</h3>
           <div className="field">
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={5} style={{ ...selectStyle, resize: "vertical" }} />
@@ -613,23 +630,30 @@ function ManagePanel() {
           </button>
 
           <hr className="admin-divider" />
-
           <h3 style={{ marginBottom: 12 }}>Resources in this unit</h3>
           {resources.length === 0 ? (
             <p className="empty-state">No resources yet.</p>
           ) : (
-            <div className="checkbox-list">
-              {resources.map((r) => (
-                <div key={r.id} className="checkbox-item" style={{ justifyContent: "space-between" }}>
-                  <span>[{r.type}] {r.title}</span>
-                  <button className="link-muted" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent-coral)" }} onClick={() => deleteResource(r.id, r.title)}>
-                    Delete
-                  </button>
-                </div>
-              ))}
-            </div>
+            <>
+              <CheckboxGrid
+                items={resources.map((r) => ({ id: r.id, name: `[${r.type}] ${r.title}` }))}
+                selected={selectedResources}
+                onToggle={(id) => setSelectedResources((p) => toggleIn(p, id))}
+                onSelectAll={() => setSelectedResources(resources.map((r) => r.id))}
+                onClearAll={() => setSelectedResources([])}
+              />
+              <button className="btn-ghost" style={{ marginTop: 10 }} disabled={busy || selectedResources.length === 0} onClick={deleteSelectedResources}>
+                Delete selected resources
+              </button>
+            </>
           )}
         </>
+      )}
+
+      {selectedUnits.length > 1 && (
+        <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 20 }}>
+          Select exactly one unit to edit its syllabus or manage its resources.
+        </p>
       )}
     </div>
   );
