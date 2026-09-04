@@ -254,12 +254,19 @@ function StructurePanel() {
 
 function ResourcePanel() {
   const [colleges, setColleges] = useState([]);
-  const [collegeId, setCollegeId] = useState("");
+  const [selectedColleges, setSelectedColleges] = useState([]);
+
   const [branches, setBranches] = useState([]);
   const [selectedBranches, setSelectedBranches] = useState([]);
-  const [semester, setSemester] = useState("");
-  const [subjectName, setSubjectName] = useState("");
-  const [unitName, setUnitName] = useState("");
+
+  const [selectedSemesters, setSelectedSemesters] = useState([]);
+
+  const [subjectGroups, setSubjectGroups] = useState([]);
+  const [selectedSubjectKey, setSelectedSubjectKey] = useState("");
+
+  const [unitGroups, setUnitGroups] = useState([]);
+  const [selectedUnitKey, setSelectedUnitKey] = useState("");
+
   const [type, setType] = useState("notes");
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
@@ -271,21 +278,70 @@ function ResourcePanel() {
   const [result, setResult] = useState(null);
 
   useEffect(() => { client.get("/colleges/").then(({ data }) => setColleges(data)); }, []);
+
   useEffect(() => {
-    if (!collegeId) { setBranches([]); setSelectedBranches([]); return; }
-    client.get(`/branches/?college_id=${collegeId}`).then(({ data }) => setBranches(data));
-  }, [collegeId]);
+    if (selectedColleges.length === 0) { setBranches([]); setSelectedBranches([]); return; }
+    Promise.all(selectedColleges.map((id) => client.get(`/branches/?college_id=${id}`))).then((res) => {
+      const merged = res.flatMap((r) => r.data);
+      setBranches(Array.from(new Map(merged.map((b) => [b.id, b])).values()));
+    });
+  }, [selectedColleges]);
+
+  useEffect(() => {
+    if (selectedBranches.length === 0 || selectedSemesters.length === 0) {
+      setSubjectGroups([]); setSelectedSubjectKey(""); return;
+    }
+    Promise.all(
+      selectedBranches.map((branchId) =>
+        Promise.all(selectedSemesters.map((sem) => client.get(`/subjects/?branch_id=${branchId}&semester=${sem}`)))
+          .then((resArr) => resArr.flatMap((r) => r.data))
+      )
+    ).then((perBranchSubjects) => {
+      const nameSets = perBranchSubjects.map((subs) => new Set(subs.map((s) => s.name.trim().toLowerCase())));
+      const commonNames = nameSets.length ? [...nameSets[0]].filter((name) => nameSets.every((set) => set.has(name))) : [];
+      const groups = commonNames.map((name) => ({
+        key: name,
+        name: perBranchSubjects.flat().find((s) => s.name.trim().toLowerCase() === name)?.name || name,
+      }));
+      setSubjectGroups(groups);
+      setSelectedSubjectKey("");
+    });
+  }, [selectedBranches, selectedSemesters]);
+
+  useEffect(() => {
+    if (!selectedSubjectKey || selectedBranches.length === 0 || selectedSemesters.length === 0) {
+      setUnitGroups([]); setSelectedUnitKey(""); return;
+    }
+    Promise.all(
+      selectedBranches.map((branchId) =>
+        Promise.all(selectedSemesters.map((sem) => client.get(`/subjects/?branch_id=${branchId}&semester=${sem}`)))
+          .then((resArr) => resArr.flatMap((r) => r.data))
+          .then((subs) => subs.find((s) => s.name.trim().toLowerCase() === selectedSubjectKey))
+          .then((subject) => (subject ? client.get(`/units/?subject_id=${subject.id}`) : { data: [] }))
+      )
+    ).then((res) => {
+      const perBranchUnits = res.map((r) => r.data);
+      const nameSets = perBranchUnits.map((units) => new Set(units.map((u) => u.name.trim().toLowerCase())));
+      const commonNames = nameSets.length ? [...nameSets[0]].filter((name) => nameSets.every((set) => set.has(name))) : [];
+      const groups = commonNames.map((name) => ({
+        key: name,
+        name: perBranchUnits.flat().find((u) => u.name.trim().toLowerCase() === name)?.name || name,
+      }));
+      setUnitGroups(groups);
+      setSelectedUnitKey("");
+    });
+  }, [selectedSubjectKey, selectedBranches, selectedSemesters]);
 
   const buildPayload = (dryRun) => ({
     branch_ids: selectedBranches,
-    semester: Number(semester),
-    subject_name: subjectName.trim(),
-    unit_name: unitName.trim(),
+    semester: selectedSemesters[0],
+    subject_name: selectedSubjectKey,
+    unit_name: selectedUnitKey,
     type, title, url,
     dry_run: dryRun,
   });
 
-  const canSubmit = selectedBranches.length && semester && subjectName.trim() && unitName.trim() && title.trim() && url.trim();
+  const canSubmit = selectedBranches.length && selectedSemesters.length === 1 && selectedSubjectKey && selectedUnitKey && title.trim() && url.trim();
 
   const runPreview = async () => {
     setBusy(true); setResult(null);
@@ -321,7 +377,7 @@ function ResourcePanel() {
       });
       setUrl(data.url);
     } catch (err) {
-      alert(err.response?.data?.detail || "Upload failed");
+      alert(extractError(err, "Upload failed"));
     } finally {
       setUploading(false);
     }
@@ -330,14 +386,19 @@ function ResourcePanel() {
   return (
     <div className="card" style={{ maxWidth: "none" }}>
       <h3 style={{ marginBottom: 4 }}>Scope</h3>
-      <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginBottom: 12 }}>Select every branch this resource applies to — one attach covers all of them.</p>
+      <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginBottom: 12 }}>
+        Select multiple branches to attach to matching (common) subject + unit across all of them.
+      </p>
 
       <div className="field">
-        <label>College</label>
-        <select style={selectStyle} value={collegeId} onChange={(e) => setCollegeId(e.target.value)}>
-          <option value="">Select college</option>
-          {colleges.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+        <label>Colleges</label>
+        <CheckboxGrid
+          items={colleges}
+          selected={selectedColleges}
+          onToggle={(id) => setSelectedColleges((p) => toggleIn(p, id))}
+          onSelectAll={() => setSelectedColleges(colleges.map((c) => c.id))}
+          onClearAll={() => setSelectedColleges([])}
+        />
       </div>
 
       <div className="field">
@@ -352,15 +413,29 @@ function ResourcePanel() {
       </div>
 
       <div className="field">
-        <label>Semester</label>
-        <select style={selectStyle} value={semester} onChange={(e) => setSemester(e.target.value)} disabled={!collegeId}>
-          <option value="">Select semester</option>
-          {SEMESTERS.map((s) => <option key={s} value={s}>Semester {s}</option>)}
+        <label>Semester (select exactly one)</label>
+        <CheckboxGrid
+          items={SEMESTERS}
+          selected={selectedSemesters}
+          onToggle={(s) => setSelectedSemesters((p) => (p.includes(s) ? [] : [s]))}
+        />
+      </div>
+
+      <div className="field">
+        <label>Subject {selectedBranches.length > 1 ? "(common to all selected branches)" : ""}</label>
+        <select style={selectStyle} value={selectedSubjectKey} onChange={(e) => setSelectedSubjectKey(e.target.value)} disabled={subjectGroups.length === 0}>
+          <option value="">Select subject</option>
+          {subjectGroups.map((g) => <option key={g.key} value={g.key}>{g.name}</option>)}
         </select>
       </div>
 
-      <div className="field"><label>Subject name (exact match, e.g. "Data Structures")</label><input value={subjectName} onChange={(e) => setSubjectName(e.target.value)} /></div>
-      <div className="field"><label>Unit name (exact match, e.g. "Arrays")</label><input value={unitName} onChange={(e) => setUnitName(e.target.value)} /></div>
+      <div className="field">
+        <label>Unit {selectedBranches.length > 1 ? "(common to all selected branches)" : ""}</label>
+        <select style={selectStyle} value={selectedUnitKey} onChange={(e) => setSelectedUnitKey(e.target.value)} disabled={unitGroups.length === 0}>
+          <option value="">Select unit</option>
+          {unitGroups.map((g) => <option key={g.key} value={g.key}>{g.name}</option>)}
+        </select>
+      </div>
 
       <hr className="admin-divider" />
 
@@ -435,11 +510,11 @@ function ManagePanel() {
 
   const [selectedSemesters, setSelectedSemesters] = useState([]);
 
-  const [subjects, setSubjects] = useState([]);
-  const [selectedSubjects, setSelectedSubjects] = useState([]);
+  const [subjectGroups, setSubjectGroups] = useState([]);
+  const [selectedSubjectKeys, setSelectedSubjectKeys] = useState([]);
 
-  const [units, setUnits] = useState([]);
-  const [selectedUnits, setSelectedUnits] = useState([]);
+  const [unitGroups, setUnitGroups] = useState([]);
+  const [selectedUnitKeys, setSelectedUnitKeys] = useState([]);
 
   const [description, setDescription] = useState("");
   const [resources, setResources] = useState([]);
@@ -460,56 +535,95 @@ function ManagePanel() {
   }, [selectedColleges]);
 
   useEffect(() => {
-    if (selectedBranches.length === 0 || selectedSemesters.length === 0) { setSubjects([]); setSelectedSubjects([]); return; }
+    if (selectedBranches.length === 0 || selectedSemesters.length === 0) {
+      setSubjectGroups([]); setSelectedSubjectKeys([]); return;
+    }
     Promise.all(
-      selectedBranches.flatMap((branchId) =>
-        selectedSemesters.map((sem) => client.get(`/subjects/?branch_id=${branchId}&semester=${sem}`))
+      selectedBranches.map((branchId) =>
+        Promise.all(selectedSemesters.map((sem) => client.get(`/subjects/?branch_id=${branchId}&semester=${sem}`)))
+          .then((resArr) => resArr.flatMap((r) => r.data))
       )
-    ).then((res) => {
-      const merged = res.flatMap((r) => r.data);
-      setSubjects(Array.from(new Map(merged.map((s) => [s.id, s])).values()));
+    ).then((perBranchSubjects) => {
+      const nameSets = perBranchSubjects.map((subs) => new Set(subs.map((s) => s.name.trim().toLowerCase())));
+      const commonNames = nameSets.length ? [...nameSets[0]].filter((name) => nameSets.every((set) => set.has(name))) : [];
+      const groups = commonNames.map((name) => {
+        const ids = perBranchSubjects.flatMap((subs) => subs.filter((s) => s.name.trim().toLowerCase() === name).map((s) => s.id));
+        const displayName = perBranchSubjects.flat().find((s) => s.name.trim().toLowerCase() === name)?.name || name;
+        return { key: name, name: displayName, ids };
+      });
+      setSubjectGroups(groups);
+      setSelectedSubjectKeys([]);
     });
   }, [selectedBranches, selectedSemesters]);
 
   useEffect(() => {
-    if (selectedSubjects.length === 0) { setUnits([]); setSelectedUnits([]); return; }
-    Promise.all(selectedSubjects.map((id) => client.get(`/units/?subject_id=${id}`))).then((res) => {
-      const merged = res.flatMap((r) => r.data);
-      setUnits(Array.from(new Map(merged.map((u) => [u.id, u])).values()));
+    const subjectIds = subjectGroups.filter((g) => selectedSubjectKeys.includes(g.key)).flatMap((g) => g.ids);
+    if (subjectIds.length === 0) { setUnitGroups([]); setSelectedUnitKeys([]); return; }
+
+    Promise.all(subjectIds.map((id) => client.get(`/units/?subject_id=${id}`))).then((res) => {
+      const perSubjectUnits = res.map((r) => r.data);
+      const nameSets = perSubjectUnits.map((units) => new Set(units.map((u) => u.name.trim().toLowerCase())));
+      const commonNames = nameSets.length ? [...nameSets[0]].filter((name) => nameSets.every((set) => set.has(name))) : [];
+      const groups = commonNames.map((name) => {
+        const ids = perSubjectUnits.flatMap((units) => units.filter((u) => u.name.trim().toLowerCase() === name).map((u) => u.id));
+        const displayName = perSubjectUnits.flat().find((u) => u.name.trim().toLowerCase() === name)?.name || name;
+        return { key: name, name: displayName, ids };
+      });
+      setUnitGroups(groups);
+      setSelectedUnitKeys([]);
     });
-  }, [selectedSubjects]);
+  }, [selectedSubjectKeys, subjectGroups]);
+
+  const selectedUnitIds = () => unitGroups.filter((g) => selectedUnitKeys.includes(g.key)).flatMap((g) => g.ids);
 
   useEffect(() => {
-    if (selectedUnits.length !== 1) { setDescription(""); setResources([]); setSelectedResources([]); return; }
-    const unitId = selectedUnits[0];
-    client.get(`/units/${unitId}`).then(({ data }) => setDescription(data.description || ""));
-    client.get(`/resources/?unit_id=${unitId}`).then(({ data }) => setResources(data));
-  }, [selectedUnits]);
+    const unitIds = selectedUnitIds();
+    if (unitIds.length === 0) { setDescription(""); setResources([]); setSelectedResources([]); return; }
+
+    if (unitIds.length === 1) {
+      client.get(`/units/${unitIds[0]}`).then(({ data }) => setDescription(data.description || ""));
+    } else {
+      setDescription("");
+    }
+
+    Promise.all(unitIds.map((id) => client.get(`/resources/?unit_id=${id}`))).then((res) => {
+      setResources(res.flatMap((r) => r.data));
+      setSelectedResources([]);
+    });
+  }, [selectedUnitKeys, unitGroups]);
 
   const notify = (msg) => setStatus(msg);
 
-  const deleteSelected = async (endpoint, ids, resetFns, label) => {
+  const deleteIds = async (endpoint, ids, label) => {
     if (ids.length === 0) return;
     if (!window.confirm(`Delete ${ids.length} ${label}? This removes everything nested under them.`)) return;
     setBusy(true);
-    try {
-      for (const id of ids) {
-        await client.delete(`${endpoint}/${id}`).catch(() => {});
-      }
-      notify(`Deleted ${ids.length} ${label}.`);
-      resetFns.forEach((fn) => fn([]));
-    } catch (err) {
-      notify(extractError(err, "Delete failed."));
-    } finally {
-      setBusy(false);
+    for (const id of ids) {
+      await client.delete(`${endpoint}/${id}`).catch(() => {});
     }
+    setBusy(false);
+    notify(`Deleted ${ids.length} ${label}.`);
+  };
+
+  const deleteSelectedColleges = async () => { await deleteIds("/colleges", selectedColleges, "college(s)"); setSelectedColleges([]); loadColleges(); };
+  const deleteSelectedBranches = async () => { await deleteIds("/branches", selectedBranches, "branch(es)"); setSelectedBranches([]); };
+  const deleteSelectedSubjects = async () => {
+    const ids = subjectGroups.filter((g) => selectedSubjectKeys.includes(g.key)).flatMap((g) => g.ids);
+    await deleteIds("/subjects", ids, "subject(s)"); setSelectedSubjectKeys([]);
+  };
+  const deleteSelectedUnits = async () => {
+    await deleteIds("/units", selectedUnitIds(), "unit(s)"); setSelectedUnitKeys([]);
   };
 
   const saveSyllabus = async () => {
+    const ids = selectedUnitIds();
+    if (ids.length === 0) return;
     setBusy(true);
     try {
-      await client.patch(`/units/${selectedUnits[0]}`, { description });
-      notify("Syllabus saved.");
+      for (const id of ids) {
+        await client.patch(`/units/${id}`, { description }).catch(() => {});
+      }
+      notify(`Syllabus saved to ${ids.length} unit(s).`);
     } catch (err) {
       notify(extractError(err, "Failed to save."));
     } finally { setBusy(false); }
@@ -530,9 +644,6 @@ function ManagePanel() {
 
   return (
     <div className="card" style={{ maxWidth: "none" }}>
-      <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginBottom: 16 }}>
-        Select one or more items at any level to delete them. Deleting a level removes everything nested under it.
-      </p>
       {status && <p style={{ color: "var(--accent-teal)", fontSize: 13, marginBottom: 16 }}>{status}</p>}
 
       <div className="field">
@@ -544,9 +655,7 @@ function ManagePanel() {
           onSelectAll={() => setSelectedColleges(colleges.map((c) => c.id))}
           onClearAll={() => setSelectedColleges([])}
         />
-        <button className="btn-ghost" style={{ marginTop: 10 }} disabled={busy || selectedColleges.length === 0}
-          onClick={() => deleteSelected("/colleges", selectedColleges, [setSelectedColleges, setSelectedBranches, setSelectedSubjects, setSelectedUnits], "college(s)").then(loadColleges)}
-        >
+        <button className="btn-ghost" style={{ marginTop: 10 }} disabled={busy || selectedColleges.length === 0} onClick={deleteSelectedColleges}>
           Delete selected colleges
         </button>
       </div>
@@ -562,9 +671,7 @@ function ManagePanel() {
           onSelectAll={() => setSelectedBranches(branches.map((b) => b.id))}
           onClearAll={() => setSelectedBranches([])}
         />
-        <button className="btn-ghost" style={{ marginTop: 10 }} disabled={busy || selectedBranches.length === 0}
-          onClick={() => deleteSelected("/branches", selectedBranches, [setSelectedBranches, setSelectedSubjects, setSelectedUnits], "branch(es)")}
-        >
+        <button className="btn-ghost" style={{ marginTop: 10 }} disabled={busy || selectedBranches.length === 0} onClick={deleteSelectedBranches}>
           Delete selected branches
         </button>
       </div>
@@ -572,7 +679,7 @@ function ManagePanel() {
       <hr className="admin-divider" />
 
       <div className="field">
-        <label>Semesters (scope for subjects below)</label>
+        <label>Semesters</label>
         <CheckboxGrid
           items={SEMESTERS}
           selected={selectedSemesters}
@@ -587,15 +694,13 @@ function ManagePanel() {
       <div className="field">
         <label>Subjects</label>
         <CheckboxGrid
-          items={subjects}
-          selected={selectedSubjects}
-          onToggle={(id) => setSelectedSubjects((p) => toggleIn(p, id))}
-          onSelectAll={() => setSelectedSubjects(subjects.map((s) => s.id))}
-          onClearAll={() => setSelectedSubjects([])}
+          items={subjectGroups.map((g) => ({ id: g.key, name: g.name }))}
+          selected={selectedSubjectKeys}
+          onToggle={(key) => setSelectedSubjectKeys((p) => toggleIn(p, key))}
+          onSelectAll={() => setSelectedSubjectKeys(subjectGroups.map((g) => g.key))}
+          onClearAll={() => setSelectedSubjectKeys([])}
         />
-        <button className="btn-ghost" style={{ marginTop: 10 }} disabled={busy || selectedSubjects.length === 0}
-          onClick={() => deleteSelected("/subjects", selectedSubjects, [setSelectedSubjects, setSelectedUnits], "subject(s)")}
-        >
+        <button className="btn-ghost" style={{ marginTop: 10 }} disabled={busy || selectedSubjectKeys.length === 0} onClick={deleteSelectedSubjects}>
           Delete selected subjects
         </button>
       </div>
@@ -605,32 +710,39 @@ function ManagePanel() {
       <div className="field">
         <label>Units</label>
         <CheckboxGrid
-          items={units}
-          selected={selectedUnits}
-          onToggle={(id) => setSelectedUnits((p) => toggleIn(p, id))}
-          onSelectAll={() => setSelectedUnits(units.map((u) => u.id))}
-          onClearAll={() => setSelectedUnits([])}
+          items={unitGroups.map((g) => ({ id: g.key, name: g.name }))}
+          selected={selectedUnitKeys}
+          onToggle={(key) => setSelectedUnitKeys((p) => toggleIn(p, key))}
+          onSelectAll={() => setSelectedUnitKeys(unitGroups.map((g) => g.key))}
+          onClearAll={() => setSelectedUnitKeys([])}
         />
-        <button className="btn-ghost" style={{ marginTop: 10 }} disabled={busy || selectedUnits.length === 0}
-          onClick={() => deleteSelected("/units", selectedUnits, [setSelectedUnits], "unit(s)")}
-        >
+        <button className="btn-ghost" style={{ marginTop: 10 }} disabled={busy || selectedUnitKeys.length === 0} onClick={deleteSelectedUnits}>
           Delete selected units
         </button>
       </div>
 
-      {selectedUnits.length === 1 && (
+      {selectedUnitIds().length > 0 && (
         <>
           <hr className="admin-divider" />
-          <h3 style={{ marginBottom: 12 }}>Syllabus text</h3>
+          <h3 style={{ marginBottom: 4 }}>Syllabus text</h3>
+          {selectedUnitIds().length > 1 && (
+            <p style={{ fontSize: 12.5, color: "var(--accent-amber)", marginBottom: 12 }}>
+              Applies to all {selectedUnitIds().length} selected units at once — this will overwrite existing text in each.
+            </p>
+          )}
           <div className="field">
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={5} style={{ ...selectStyle, resize: "vertical" }} />
           </div>
           <button className="btn-primary" style={{ width: "auto", padding: "10px 20px", marginBottom: 24 }} onClick={saveSyllabus} disabled={busy}>
-            Save syllabus
+            Save syllabus {selectedUnitIds().length > 1 ? `to ${selectedUnitIds().length} units` : ""}
           </button>
+        </>
+      )}
 
+      {selectedUnitIds().length > 0 && (
+        <>
           <hr className="admin-divider" />
-          <h3 style={{ marginBottom: 12 }}>Resources in this unit</h3>
+          <h3 style={{ marginBottom: 12 }}>Resources in selected unit(s)</h3>
           {resources.length === 0 ? (
             <p className="empty-state">No resources yet.</p>
           ) : (
@@ -648,12 +760,6 @@ function ManagePanel() {
             </>
           )}
         </>
-      )}
-
-      {selectedUnits.length > 1 && (
-        <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 20 }}>
-          Select exactly one unit to edit its syllabus or manage its resources.
-        </p>
       )}
     </div>
   );
